@@ -110,6 +110,7 @@ Registro de decisiones menores tomadas de forma autónoma (el prompt pide anotar
 - Formulario mínimo `/persona/nueva` (crear + avisar duplicados + vincular padres) y `POST /api/branches` para poder cargar datos reales sin curl. La edición completa de fichas por UI queda pendiente.
 - El mapa incluye co-padres (padres de los incluidos aunque no sean pareja del foco): sin esto, Juleisys no se veía al navegar desde Mateo. Reportado por el usuario con datos reales.
 - Las parejas se alinean en la misma generación (la más profunda): sin esto, Juleisys quedaba en la fila de la suegra por no tener padres registrados. Con unión + alineación quedan lado a lado.
+- Tipo de unión `separated` (migración 004): tuvieron hijos y se separaron; se muestra "Separados" y alinea nivel igual que las demás.
 - **Todo = todo de verdad** (pedido del usuario): el botón cargaba solo la ventana del foco y parecía que faltaba gente. Ahora `Todo` pide la ventana completa (up/down 30), la encuadra y limpia focos/filtros. Además: botón "Centrar aquí" en el popup para re-enfocar y explorar libremente, bandas "Generación N" con líneas guía, y atenuados más visibles (0.45/0.35) para que no parezcan borrados.
 ## Evidencia para Fase 9 (2026-10-04)
 - `npm run test:db` en paralelo agotó las conexiones del rol (`too many connections for role "family_tree_app"`): la base tiene un tope bajo por rol. Los tests ahora corren secuenciales (`--test-concurrency=1`), pero en Vercel hará falta pooler (PgBouncer) o `PG_POOL_MAX` bajo por función. Confirmar con el proveedor antes del despliegue.

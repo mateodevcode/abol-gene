@@ -3,6 +3,7 @@ import { currentUser } from '@/lib/auth/session';
 import { query } from '@/lib/db/client';
 import { getStats } from '@/lib/db/stats';
 import PersonLink from '@/components/person/PersonLink';
+import BranchManager from '@/components/admin/BranchManager';
 import ViewToggle from '@/components/ui/ViewToggle';
 
 export default async function EstadisticasPage() {
@@ -54,14 +55,9 @@ export default async function EstadisticasPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-2xl font-bold">Ramas con huecos por completar</h2>
-        <div className="mt-3 flex flex-col gap-2">
-          {s.branch_gaps.map((b) => (
-            <div key={b.id} className="rounded-xl border border-stone-200 px-4 py-3 text-lg">
-              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: b.color }} /> {b.name}
-              <span className="text-stone-500"> · {b.persons} personas · {b.missing_birth} sin fecha · {b.missing_parents} con padres por registrar</span>
-            </div>
-          ))}
+        <h2 className="text-2xl font-bold">Ramas (nombre y color editables)</h2>
+        <div className="mt-3">
+          <BranchManager initial={s.branch_gaps} />
         </div>
       </section>
 

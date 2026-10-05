@@ -38,3 +38,29 @@ export async function createBranch(db, userId, { name, color = null, founder_per
   await logChange(db, { entity_type: 'branch', entity_id: branch.id, action: 'create', after: branch, user_id: userId });
   return branch;
 }
+
+/** Edita nombre, color o fundador de una rama. */
+export async function updateBranch(db, userId, id, data) {
+  const { rows: [before] } = await db.query('SELECT * FROM branches WHERE id=$1 AND deleted_at IS NULL', [id]);
+  if (!before) throw new Error('Rama no encontrada.');
+  if (data.name !== undefined && !String(data.name ?? '').trim()) {
+    throw new Error('La rama necesita un nombre.');
+  }
+  if (data.color !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(data.color)) {
+    throw new Error('Color no válido (hex #RRGGBB).');
+  }
+  if (data.founder_person_id !== undefined && data.founder_person_id !== null) {
+    const f = await db.query('SELECT id FROM persons WHERE id=$1 AND deleted_at IS NULL', [data.founder_person_id]);
+    if (!f.rows[0]) throw new Error('La persona fundadora no existe.');
+  }
+  const fields = ['name', 'color', 'founder_person_id'];
+  const cols = fields.filter((f) => data[f] !== undefined);
+  if (!cols.length) return before;
+  const set = cols.map((c, i) => `${c}=$${i + 1}`).join(',');
+  const vals = cols.map((c) => (c === 'name' ? String(data[c]).trim() : (data[c] === '' ? null : data[c])));
+  const { rows: [after] } = await db.query(
+    `UPDATE branches SET ${set} WHERE id=$${cols.length + 1} AND deleted_at IS NULL RETURNING *`,
+    [...vals, id]);
+  await logChange(db, { entity_type: 'branch', entity_id: id, action: 'update', before, after, user_id: userId });
+  return after;
+}
