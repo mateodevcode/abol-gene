@@ -2,9 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-/** Rama del árbol alrededor del foco (cacheada por foco y profundidad). */
-export async function fetchTreeAround(focusId, { up, down }) {
-  const res = await fetch(`/api/persons/${focusId}/tree?up=${up}&down=${down}`);
+/** Rama del árbol: ventana alrededor del foco, o completo con full. */
+export async function fetchTreeAround(focusId, { up, down }, full = false) {
+  const res = await fetch(`/api/persons/${focusId}/tree?up=${up}&down=${down}${full ? '&full=1' : ''}`);
   if (!res.ok) throw new Error('No se pudo cargar el árbol.');
   return res.json();
 }
@@ -12,7 +12,7 @@ export async function fetchTreeAround(focusId, { up, down }) {
 export function useTreeData(focusId, depth, full = false) {
   return useQuery({
     queryKey: ['tree', focusId, full ? 'full' : depth.up, full ? 'full' : depth.down],
-    queryFn: () => fetchTreeAround(focusId, full ? { up: 30, down: 30 } : depth),
+    queryFn: () => fetchTreeAround(focusId, full ? { up: 30, down: 30 } : depth, full),
     enabled: !!focusId,
   });
 }

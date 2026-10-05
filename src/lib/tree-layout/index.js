@@ -3,7 +3,8 @@
  * devuelve coordenadas. No dibuja nada (el dibujo vive en components/tree).
  *
  * Modelo por generaciones (layering por camino más largo desde raíces):
- *  - Parejas principales (unión más antigua) van lado a lado.
+ *  - Parejas principales (unión más antigua, o co-padre con más hijos en
+ *    común si no hay unión) van lado a lado, en la misma generación.
  *  - Hijos ordenados por fecha de nacimiento bajo sus padres; los padres se
  *    recentran sobre la media de sus hijos (hacia abajo-arriba, sin solapes).
  *  - Segundos matrimonios: la persona se ubica con su unión principal; los
@@ -51,6 +52,7 @@ export function layoutTree(input) {
   }
   const other = (u, id) => (u.person_a_id === id ? u.person_b_id : u.person_a_id);
   const unionDate = (u) => u.start_date ?? '9999';
+  const birthKey = (id) => byId.get(id)?.birth_date ?? '9999';
 
   /** Pareja principal: la unión más antigua (fechas nulas al final). */
   const primaryOf = new Map();
@@ -60,13 +62,59 @@ export function layoutTree(input) {
     primaryOf.set(id, other(sorted[0], id));
   }
 
-  // 1. Generaciones: camino más largo desde raíces (sin padres en el set),
-  // con parejas alineadas en la misma generación (la más profunda de los dos).
+  /**
+   * Pareja para ubicar juntos: la de la unión, o si no hay, el co-padre con
+   * más hijos en común (padres que comparten hijos van lado a lado aunque no
+   * tengan unión registrada).
+   */
+  const pairOf = new Map(primaryOf);
+  const sharedKids = new Map(); // "a<b" -> { a, b, kids: [] }
+  for (const [child, ps] of parentsOf) {
+    const list = [...new Set(ps.filter((p) => ids.has(p)))].sort();
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const key = list[i] + '<' + list[j];
+        if (!sharedKids.has(key)) sharedKids.set(key, { a: list[i], b: list[j], kids: [] });
+        sharedKids.get(key).kids.push(child);
+      }
+    }
+  }
+  const coparentsOf = new Map(); // id -> [otros padres ordenados por hijos en común]
+  for (const { a, b, kids } of sharedKids.values()) {
+    if (!coparentsOf.has(a)) coparentsOf.set(a, []);
+    if (!coparentsOf.has(b)) coparentsOf.set(b, []);
+    coparentsOf.get(a).push({ id: b, n: kids.length });
+    coparentsOf.get(b).push({ id: a, n: kids.length });
+  }
+  for (const [id, list] of coparentsOf) {
+    if (pairOf.has(id)) continue;
+    list.sort((x, y) => y.n - x.n || (birthKey(x.id) < birthKey(y.id) ? -1 : 1) || (x.id < y.id ? -1 : 1));
+    pairOf.set(id, list[0].id);
+  }
+
+  // 1. Generaciones: camino más largo desde raíces (sin padres en el set).
+  // Quienes son/han sido pareja, o tienen un hijo en común, comparten
+  // generación (la más profunda): nadie queda en la fila de sus suegros.
   const gen = new Map();
   for (const id of ids) {
     if (!(parentsOf.get(id) ?? []).length) gen.set(id, 0);
   }
   const unionsIn = (input.unions ?? []).filter((u) => ids.has(u.person_a_id) && ids.has(u.person_b_id));
+  // Pares de co-padres (comparten al menos un hijo), haya o no unión.
+  const coparentPairs = new Map(); // key -> [a, b]
+  for (const [child, ps] of parentsOf) {
+    const list = ps.filter((p) => ids.has(p));
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const key = [list[i], list[j]].sort().join('<');
+        if (!coparentPairs.has(key)) coparentPairs.set(key, [list[i], list[j]]);
+      }
+    }
+  }
+  const alignPairs = [
+    ...unionsIn.map((u) => [u.person_a_id, u.person_b_id]),
+    ...coparentPairs.values(),
+  ];
   let changed = true;
   for (let iter = 0; iter < 60 && changed; iter++) {
     changed = false;
@@ -79,21 +127,19 @@ export function layoutTree(input) {
         changed = true;
       }
     }
-    for (const u of unionsIn) {
-      const g = Math.max(gen.get(u.person_a_id) ?? 0, gen.get(u.person_b_id) ?? 0);
-      if (gen.get(u.person_a_id) !== g) {
-        gen.set(u.person_a_id, g);
+    for (const [a, b] of alignPairs) {
+      const g = Math.max(gen.get(a) ?? 0, gen.get(b) ?? 0);
+      if (gen.get(a) !== g) {
+        gen.set(a, g);
         changed = true;
       }
-      if (gen.get(u.person_b_id) !== g) {
-        gen.set(u.person_b_id, g);
+      if (gen.get(b) !== g) {
+        gen.set(b, g);
         changed = true;
       }
     }
   }
   for (const id of ids) if (!gen.has(id)) gen.set(id, 0); // ciclo defensivo
-
-  const birthKey = (id) => byId.get(id)?.birth_date ?? '9999';
 
   // 2. Orden por generación: gen 0 por fecha; el resto por posición de padres.
   const maxGen = Math.max(0, ...gen.values());
@@ -137,7 +183,7 @@ export function layoutTree(input) {
     const placed = new Set();
     for (const id of ids0) {
       if (placed.has(id)) continue;
-      const partner = primaryOf.get(id);
+      const partner = pairOf.get(id);
       if (partner && gen.get(partner) === g && !placed.has(partner)) {
         groups.push([id, partner]);
         placed.add(id);

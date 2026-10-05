@@ -43,9 +43,11 @@ export async function getPartners(db, personId) {
  * Árbol alrededor de una persona: N generaciones arriba y M abajo,
  * más hermanos (hijos de los padres incluidos), co-padres (padres de los
  * incluidos, aunque no sean pareja del foco) y parejas de todos.
+ * Con `full: true` ignora la ventana y trae el componente conectado completo
+ * (padres + hijos + parejas hasta estabilizar) más las personas sueltas.
  * @returns {{ focus: string, persons: any[], parent_links: any[], unions: any[] }}
  */
-export async function getTreeAround(db, personId, { up = 2, down = 2 } = {}) {
+export async function getTreeAround(db, personId, { up = 2, down = 2, full = false } = {}) {
   up = Math.min(Math.max(Number(up) || 0, 0), 30);
   down = Math.min(Math.max(Number(down) || 0, 0), 30);
   const me = await db.query('SELECT id FROM persons WHERE id=$1 AND deleted_at IS NULL', [personId]);
@@ -80,18 +82,37 @@ export async function getTreeAround(db, personId, { up = 2, down = 2 } = {}) {
   for (const r of sibs) core.add(r.id);
 
   // Co-padres: padres de los incluidos (la madre aunque no sea pareja del foco).
-  const { rows: coparents } = core.size ? await db.query(
-    `SELECT DISTINCT pl.parent_id AS id FROM parent_links pl
-       JOIN persons p ON p.id = pl.parent_id AND p.deleted_at IS NULL
-      WHERE pl.child_id = ANY($1) AND pl.deleted_at IS NULL`, [[...core]]) : { rows: [] };
-  for (const r of coparents) core.add(r.id);
+  // En modo full se itera padres + hijos + parejas hasta cerrar el componente.
+  for (let round = 0; round < (full ? 20 : 1); round++) {
+    const before = core.size;
+    const arr = [...core];
+    const [par, chi, part] = await Promise.all([
+      db.query(
+        `SELECT DISTINCT pl.parent_id AS id FROM parent_links pl
+          JOIN persons p ON p.id = pl.parent_id AND p.deleted_at IS NULL
+         WHERE pl.child_id = ANY($1) AND pl.deleted_at IS NULL`, [arr]),
+      full ? db.query(
+        `SELECT DISTINCT pl.child_id AS id FROM parent_links pl
+          JOIN persons p ON p.id = pl.child_id AND p.deleted_at IS NULL
+         WHERE pl.parent_id = ANY($1) AND pl.deleted_at IS NULL`, [arr]) : { rows: [] },
+      db.query(
+        `SELECT DISTINCT CASE WHEN person_a_id = ANY($1) THEN person_b_id ELSE person_a_id END AS id
+           FROM unions WHERE deleted_at IS NULL AND (person_a_id = ANY($1) OR person_b_id = ANY($1))`,
+        [arr]),
+    ]);
+    for (const r of [...par.rows, ...chi.rows, ...part.rows]) core.add(r.id);
+    if (core.size === before) break;
+  }
+  if (full) {
+    // Personas sueltas (sin ningún vínculo ni unión): también son familia.
+    const { rows: orphans } = await db.query(
+      `SELECT p.id FROM persons p WHERE p.deleted_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM parent_links pl WHERE pl.deleted_at IS NULL AND (pl.parent_id = p.id OR pl.child_id = p.id))
+         AND NOT EXISTS (SELECT 1 FROM unions u WHERE u.deleted_at IS NULL AND (u.person_a_id = p.id OR u.person_b_id = p.id))`);
+    for (const r of orphans) core.add(r.id);
+  }
 
-  // Parejas de todos los incluidos.
-  const { rows: partners } = core.size ? await db.query(
-    `SELECT DISTINCT CASE WHEN person_a_id = ANY($1) THEN person_b_id ELSE person_a_id END AS id
-       FROM unions WHERE deleted_at IS NULL AND (person_a_id = ANY($1) OR person_b_id = ANY($1))`,
-    [[...core]]) : { rows: [] };
-  for (const r of partners) core.add(r.id);
+  // (El bucle ya trae parejas; no hace falta repetirlo.)
 
   const ids = [...core];
   const [persons, links, unions] = await Promise.all([

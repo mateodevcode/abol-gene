@@ -112,5 +112,6 @@ Registro de decisiones menores tomadas de forma autónoma (el prompt pide anotar
 - Las parejas se alinean en la misma generación (la más profunda): sin esto, Juleisys quedaba en la fila de la suegra por no tener padres registrados. Con unión + alineación quedan lado a lado.
 - Tipo de unión `separated` (migración 004): tuvieron hijos y se separaron; se muestra "Separados" y alinea nivel igual que las demás.
 - **Todo = todo de verdad** (pedido del usuario): el botón cargaba solo la ventana del foco y parecía que faltaba gente. Ahora `Todo` pide la ventana completa (up/down 30), la encuadra y limpia focos/filtros. Además: botón "Centrar aquí" en el popup para re-enfocar y explorar libremente, bandas "Generación N" con líneas guía, y atenuados más visibles (0.45/0.35) para que no parezcan borrados.
+- `?full=1`: cierra el componente conectado (padres+hijos+parejas hasta estabilizar) más personas sueltas. Sin esto, desde Angélica no salía Maximiliano (sobrino fuera de su ventana).
 ## Evidencia para Fase 9 (2026-10-04)
 - `npm run test:db` en paralelo agotó las conexiones del rol (`too many connections for role "family_tree_app"`): la base tiene un tope bajo por rol. Los tests ahora corren secuenciales (`--test-concurrency=1`), pero en Vercel hará falta pooler (PgBouncer) o `PG_POOL_MAX` bajo por función. Confirmar con el proveedor antes del despliegue.

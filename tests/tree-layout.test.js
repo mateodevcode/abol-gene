@@ -189,6 +189,22 @@ describe('layout: huecos y cruces', () => {
     assert.equal(fams.length, 1, 'núcleo familiar');
     assert.deepEqual(new Set(fams[0].children), new Set(['hijo']));
   });
+
+  it('co-padres sin unión comparten generación y van juntos', () => {
+    // Ella sin padres ni unión: solo el hijo en común la alinea con él.
+    const input = {
+      persons: [P('suegra', '1940-01-01'), P('el', '1970-01-01'), P('ella', '1972-01-01'), P('hijo', '2000-01-01')],
+      parent_links: [L('suegra', 'el'), L('el', 'hijo'), L('ella', 'hijo')],
+      unions: [],
+    };
+    const t = layoutTree(input);
+    checkInvariants(t, input, 'copadres');
+    const n = byId(t.nodes);
+    assert.equal(n.get('el').gen, 1);
+    assert.equal(n.get('ella').gen, 1, 'sube por el hijo en común');
+    assert.equal(n.get('hijo').gen, 2);
+    assert.ok(Math.abs(n.get('el').x - n.get('ella').x) <= NODE_W + X_GAP + 1, 'lado a lado');
+  });
 });
 
 describe('layout: rendimiento con 2000', () => {

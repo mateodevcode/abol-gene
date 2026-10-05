@@ -50,6 +50,7 @@ export default function TreeApp({ user, initialFocusId }) {
   const [routeLabel, setRouteLabel] = useState("");
   const fitPending = useRef(false);
   const centeredFor = useRef(null);
+  const fittedLayout = useRef(null);
 
   useEffect(() => {
     setFocus(initialFocusId ?? user.person_id);
@@ -151,15 +152,19 @@ export default function TreeApp({ user, initialFocusId }) {
   }, [nodes]);
 
   // Centrar al cargar o cambiar de foco; encuadrar al pedir Todo.
+  // Ojo: encuadrar solo con datos nuevos (si no, el efecto se come el flag
+  // con el layout viejo y al llegar todos ya no re-encuadra).
   useEffect(() => {
     if (!layout || !focusId) return;
     if (fullTree) {
-      if (fitPending.current && canvasRef.current) {
+      if ((fitPending.current || fittedLayout.current !== layout) && canvasRef.current) {
         fitPending.current = false;
+        fittedLayout.current = layout;
         canvasRef.current.fitView(true);
       }
       return;
     }
+    fittedLayout.current = null;
     const n = nodeById.get(focusId);
     if (n && canvasRef.current && centeredFor.current !== focusId) {
       centeredFor.current = focusId;
@@ -202,8 +207,8 @@ export default function TreeApp({ user, initialFocusId }) {
     setRouteLabel("");
     setGenFilter(null);
     setFullTree(true);
+    // El efecto encuadra cuando el layout cambie (datos nuevos o caché).
     fitPending.current = true;
-    // Mejor esfuerzo inmediato; el efecto re-encuadra al llegar los datos.
     canvasRef.current?.fitView(true);
   }
 
