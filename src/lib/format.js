@@ -54,7 +54,7 @@ export function factTypeEs(type) {
   return FACT_TYPES[type] ?? type;
 }
 
-const UNION_KINDS = { marriage: 'Matrimonio', free_union: 'Unión libre', partnership: 'Pareja' };
+const UNION_KINDS = { marriage: 'Matrimonio', free_union: 'Unión libre', partnership: 'Pareja', separated: 'Separados' };
 
 export function unionKindEs(kind) {
   return UNION_KINDS[kind] ?? kind;

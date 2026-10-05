@@ -1,4 +1,4 @@
-import { formatDate } from '@/lib/format';
+import { formatDate, unionKindEs } from '@/lib/format';
 
 /**
  * Línea de vida ordenada por año: nacimiento, uniones, historias con fecha,
@@ -14,7 +14,7 @@ export default function Timeline({ profile }) {
     if (p.start_date) {
       events.push({
         date: p.start_date,
-        label: `${p.union_kind === 'marriage' ? 'Matrimonio' : p.union_kind === 'free_union' ? 'Unión libre' : 'Pareja'} con ${p.given_names} ${p.paternal_surname ?? ''}`.trim(),
+        label: `${unionKindEs(p.union_kind)} con ${p.given_names} ${p.paternal_surname ?? ''}`.trim(),
         dateStr: formatDate(p.start_date, p.start_date_precision),
       });
     }

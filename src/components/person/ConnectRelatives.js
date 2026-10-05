@@ -10,6 +10,7 @@ const LINK_KINDS = [
 ];
 const UNION_KINDS = [
   ['marriage', 'Matrimonio'], ['free_union', 'Unión libre'], ['partnership', 'Pareja'],
+  ['separated', 'Separados (tuvieron hijos)'],
 ];
 
 /**

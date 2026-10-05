@@ -3,7 +3,7 @@ import { shortName } from '@/lib/db/persons';
 
 const LINK_KINDS = ['biological', 'adoptive', 'foster', 'step'];
 const CERTAINTIES = ['confirmed', 'unconfirmed'];
-const UNION_KINDS = ['marriage', 'free_union', 'partnership'];
+const UNION_KINDS = ['marriage', 'free_union', 'partnership', 'separated'];
 const END_REASONS = ['divorce', 'widowed', 'separation'];
 const PRECISIONS = ['day', 'month', 'year', 'decade', 'approximate'];
 
