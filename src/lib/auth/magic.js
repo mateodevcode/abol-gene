@@ -11,6 +11,26 @@ function normalizeEmail(email) {
 }
 
 /**
+ * Base pública de la app para los enlaces del correo:
+ * NEXTAUTH_URL, si no el host real que llama (proxy/headers), si no localhost.
+ * Así nunca sale localhost en producción aunque falte la variable.
+ */
+export async function appBaseUrl() {
+  const env = (process.env.NEXTAUTH_URL ?? '').replace(/\/$/, '');
+  if (env) return env;
+  try {
+    const { headers } = await import('next/headers');
+    const h = await headers();
+    const proto = h.get('x-forwarded-proto') ?? 'https';
+    const host = h.get('x-forwarded-host') ?? h.get('host');
+    if (host && !host.startsWith('localhost')) return `${proto}://${host}`;
+  } catch {
+    /* sin contexto de request: cae al default */
+  }
+  return 'http://localhost:3000';
+}
+
+/**
  * Valida y registra un pedido de enlace mágico. Solo invitados: si el correo
  * no tiene cuenta, exige un código válido. El cliente llama después a
  * signIn('email') de next-auth/react. Guarda el código para canjearlo en
@@ -69,7 +89,7 @@ export async function requestMagicLink(email, inviteCode = null) {
   await query(
     'INSERT INTO verification_tokens (identifier, token, expires) VALUES ($1,$2,$3)',
     [prep.email, token, expires]);
-  const base = (process.env.NEXTAUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const base = await appBaseUrl();
   try {
     await sendMagicLink({ to: prep.email, url: `${base}/verificar?token=${token}` });
   } catch (e) {
